@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUB XI-H</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@500,600,700,800&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg-color: #F5F6FA;
+        --card-bg: #FFFFFF;
+        --card-bg-sunken: #FAFBFD;
+        --border-color: #E3E6ED;
+        --border-strong: #C7CCDA;
+        --text-main: #191D2B;
+        --text-muted: #767C8C;
+        --accent: #4F46E5;
+        --accent-soft: #EEF0FE;
+        --accent-nouval: #4F46E5;
+        --accent-raden: #D97706;
+        --ok: #0F9D63;
+        --danger: #E11D48;
+        --danger-bg: #E11D48;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'General Sans', -apple-system, 'Segoe UI', sans-serif;
+        border-radius: 0 !important;
+    }
+
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-main);
+        padding: 14px 4px 100px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+    }
+
+    .wrap { width: 100%; max-width: 780px; }
+
+    /* ============================= HEADER ============================= */
+    .header {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+        padding: 2px 4px;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .header h1 {
+        font-size: clamp(0.95rem, 3.8vw, 1.25rem);
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        color: var(--text-main);
+    }
+    .header h1 span { color: var(--accent); }
+
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    /* ---- Sync indicator: compact by default, richer while active ---- */
+    .sync-row {
+        display: flex; align-items: center; gap: 7px;
+        font-size: clamp(0.6rem, 1.8vw, 0.68rem);
+        color: var(--text-muted);
+        font-weight: 600;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        padding: 6px 10px;
+        transition: border-color .2s ease, background .2s ease;
+    }
+    .sync-row.busy { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .sync-row.ok-flash { border-color: var(--ok); background: #E8F8F0; color: var(--ok); }
+    .sync-row.err { border-color: var(--danger); background: #FDEAEE; color: var(--danger); }
+
+    .sync-icon {
+        width: 13px; height: 13px; flex: none;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .sync-icon svg { width: 100%; height: 100%; }
+    .sync-row.busy .sync-icon svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sync-dot { width: 6px; height: 6px; background: var(--ok); flex: none; }
+
+    .profile-switch { display: flex; border: 1px solid var(--border-strong); }
+    .profile-switch button {
+        background: var(--card-bg);
+        border: none;
+        padding: 7px 13px;
+        font-size: clamp(0.62rem, 2vw, 0.72rem);
+        font-weight: 700;
+        cursor: pointer;
+        color: var(--text-muted);
+    }
+    .profile-switch button + button { border-left: 1px solid var(--border-strong); }
+    .profile-switch button.active { color: #fff; }
+    .profile-switch button[data-user="Nouval"].active { background: var(--accent-nouval); }
+    .profile-switch button[data-user="Raden"].active { background: var(--accent-raden); }
+
+    /* ============================= SCHEDULE TABLE ============================= */
+    .section-label {
+        width: 100%;
+        font-size: clamp(0.62rem, 2vw, 0.72rem);
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 4px 2px 8px;
+    }
+
+    .table-container {
+        width: 100%;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(20,22,40,0.03);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: center;
+        table-layout: fixed;
+    }
+
+    th, td {
+        border: 1px solid var(--border-color);
+        padding: 0;
+        vertical-align: middle;
+        overflow: hidden;
+    }
+
+    .day-col { width: 11%; }
+    .period-col { width: 8.9%; }
+
+    th {
+        background-color: var(--card-bg-sunken);
+        color: var(--text-muted);
+        font-size: clamp(0.52rem, 1.8vw, 0.68rem);
+        font-weight: 700;
+        padding: 5px 0;
+        text-transform: uppercase;
+    }
+
+    .time-slot {
+        font-size: clamp(0.35rem, 1.2vw, 0.52rem);
+        color: var(--text-muted);
+        line-height: 1.15;
+        font-weight: 600;
+        opacity: 0.85;
+    }
+
+    .day-cell {
+        background-color: var(--card-bg-sunken);
+        font-weight: 800;
+        font-size: clamp(0.48rem, 1.7vw, 0.65rem);
+        color: var(--text-main);
+        text-transform: uppercase;
+        padding: 2px 1px;
+        white-space: nowrap;
+        letter-spacing: -0.01em;
+    }
+
+    .cell-box {
+        height: clamp(38px, 9.5vw, 50px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 1px;
+        transition: opacity 0.15s ease, outline .1s ease;
+        user-select: none;
+        background: var(--card-bg);
+    }
+
+    .edit-active .cell-box { cursor: pointer; }
+    .edit-active .cell-box:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+    .subject {
+        font-weight: 800;
+        font-size: clamp(0.5rem, 1.9vw, 0.74rem);
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+        text-align: center;
+        padding: 0 1px;
+    }
+
+    /* Distinct, non-blending palette (spaced across the hue wheel) */
+    .tag-BIG   { background: #4F46E5; color: #FFFFFF; } /* indigo */
+    .tag-PAG   { background: #D97706; color: #FFFFFF; } /* amber */
+    .tag-BK    { background: #DB2777; color: #FFFFFF; } /* rose */
+    .tag-MTK   { background: #DC2626; color: #FFFFFF; } /* red */
+    .tag-EKO   { background: #0D9488; color: #FFFFFF; } /* teal */
+    .tag-SEJIN { background: #EA580C; color: #FFFFFF; } /* orange */
+    .tag-PPKn  { background: #2563EB; color: #FFFFFF; } /* blue */
+    .tag-BIN   { background: #16A34A; color: #FFFFFF; } /* green */
+    .tag-PKWu  { background: #9333EA; color: #FFFFFF; } /* purple */
+    .tag-SOS   { background: #475569; color: #FFFFFF; } /* slate */
+    .tag-GEO   { background: #A16207; color: #FFFFFF; } /* olive brown */
+    .tag-PJOK  { background: #059669; color: #FFFFFF; } /* emerald */
+    .tag-BIO   { background: #C026D3; color: #FFFFFF; } /* magenta */
+    .tag-BADER { background: #0891B2; color: #FFFFFF; } /* cyan */
+    .tag-SEBUD { background: #7C3AED; color: #FFFFFF; } /* violet */
+    .tag-EMPTY { background: var(--card-bg); color: var(--text-muted); }
+    .cell-box.tag-EMPTY .subject::before { content: '—'; opacity: 0.35; font-weight: 500; }
+
+    /* ============================= BOTTOM ACTIONS ============================= */
+    .bottom-actions {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+        padding-right: 2px;
+    }
+
+    .btn-edit {
+        background-color: var(--accent);
+        color: #fff;
+        border: 1px solid var(--accent);
+        padding: 8px 20px;
+        font-weight: 700;
+        font-size: clamp(0.72rem, 2.8vw, 0.84rem);
+        cursor: pointer;
+        letter-spacing: 0.02em;
+        transition: all 0.15s ease;
+    }
+    .btn-edit.active { background-color: var(--danger-bg); color: #ffffff; border-color: var(--danger-bg); }
+
+    /* ============================= TASKS ============================= */
+    .task-tabs {
+        display: flex;
+        border: 1px solid var(--border-strong);
+        margin-top: 4px;
+    }
+    .task-tabs button {
+        flex: 1;
+        background: var(--card-bg);
+        border: none;
+        padding: 10px 6px;
+        font-size: clamp(0.62rem, 2vw, 0.74rem);
+        font-weight: 700;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+    .task-tabs button + button { border-left: 1px solid var(--border-strong); }
+    .task-tabs button.active { color: #fff; background: var(--accent); }
+    .task-tabs button .count {
+        font-size: 0.62em;
+        background: rgba(0,0,0,0.12);
+        padding: 1px 5px;
+        margin-left: 5px;
+    }
+    .task-tabs button.active .count { background: rgba(255,255,255,0.25); }
+
+    .task-list { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+    .task-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        padding: 12px 14px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        box-shadow: 0 1px 2px rgba(20,22,40,0.03);
+    }
+    .task-card.done { opacity: 0.55; }
+
+    .check-btn {
+        flex: none;
+        width: 32px; height: 32px;
+        border: 2px solid var(--border-strong);
+        background: var(--card-bg);
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; font-weight: 800; color: transparent;
+        align-self: center;
+        order: 2;
+    }
+    .check-btn.checked { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .task-main { order: 1; }
+
+    .task-main { flex: 1; min-width: 0; }
+    .task-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+    .task-title {
+        font-weight: 700;
+        font-size: clamp(0.78rem, 2.6vw, 0.92rem);
+        color: var(--text-main);
+    }
+    .task-card.done .task-title { text-decoration: line-through; }
+
+    .badge {
+        font-size: clamp(0.52rem, 1.6vw, 0.62rem);
+        font-weight: 700;
+        padding: 3px 8px;
+        white-space: nowrap;
+    }
+    .badge.cat {
+        background: none; border: 1px solid var(--border-strong); color: var(--text-muted);
+    }
+
+    .task-meta {
+        font-size: clamp(0.55rem, 1.6vw, 0.64rem);
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+    .task-notes {
+        font-size: clamp(0.7rem, 2.2vw, 0.8rem);
+        color: var(--text-main);
+        line-height: 1.5;
+        border-left: 2px solid var(--border-strong);
+        padding-left: 8px;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    .status-strip { display: flex; gap: 12px; margin-bottom: 8px; }
+    .status-strip .u {
+        display: flex; align-items: center; gap: 4px;
+        font-size: clamp(0.52rem, 1.6vw, 0.6rem);
+        color: var(--text-muted); font-weight: 600;
+    }
+    .status-strip .u i { width: 6px; height: 6px; background: var(--border-strong); display: inline-block; }
+    .status-strip .u.done i { background: var(--ok); }
+
+    .task-actions { display: flex; gap: 6px; }
+    .btn-mini {
+        background: transparent;
+        border: 1px solid var(--border-strong);
+        color: var(--text-muted);
+        padding: 5px 11px;
+        font-weight: 600;
+        font-size: clamp(0.58rem, 1.8vw, 0.66rem);
+        cursor: pointer;
+    }
+    .btn-mini.danger { color: var(--danger); border-color: var(--danger); }
+
+    .empty-state {
+        width: 100%;
+        border: 1px dashed var(--border-strong);
+        padding: 26px 14px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: clamp(0.68rem, 2.2vw, 0.78rem);
+        font-weight: 500;
+    }
+
+    /* ============================= FAB ============================= */
+    .fab {
+        position: fixed;
+        right: 16px; bottom: 20px;
+        width: 52px; height: 52px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 52px;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: 0 6px 16px rgba(79,70,229,0.35);
+        z-index: 40;
+    }
+    .fab:active { transform: scale(0.96); }
+
+    /* ============================= MODALS ============================= */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(20,22,35,0.45);
+        z-index: 100;
+        justify-content: center;
+        align-items: center;
+        padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+        background: var(--card-bg);
+        border: 1px solid var(--border-strong);
+        width: 100%;
+        max-width: 320px;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 20px;
+        box-shadow: 0 16px 40px rgba(20,22,40,0.18);
+    }
+
+    .modal h2 {
+        font-size: 0.92rem;
+        margin-bottom: 14px;
+        color: var(--text-main);
+        font-weight: 800;
+    }
+
+    .form-group { margin-bottom: 14px; text-align: left; }
+    .form-group label {
+        display: block;
+        font-size: 0.68rem;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+        font-weight: 700;
+    }
+    .form-group select, .form-group input, .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        background: var(--card-bg-sunken);
+        border: 1px solid var(--border-strong);
+        color: var(--text-main);
+        font-size: 0.85rem;
+        outline: none;
+        font-weight: 600;
+        font-family: inherit;
+    }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+    .form-group textarea { font-weight: 500; resize: vertical; min-height: 64px; }
+    .form-row { display: flex; gap: 8px; }
+    .form-row .form-group { flex: 1; }
+
+    .cat-toggle { display: flex; border: 1px solid var(--border-strong); }
+    .cat-toggle button {
+        flex: 1; border: none; background: var(--card-bg-sunken); padding: 9px; font-weight: 700;
+        font-size: 0.72rem; cursor: pointer; color: var(--text-muted);
+    }
+    .cat-toggle button + button { border-left: 1px solid var(--border-strong); }
+    .cat-toggle button.active { background: var(--accent); color: #fff; }
+
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+    .btn-cancel {
+        background: transparent; color: var(--text-muted); border: 1px solid var(--border-strong);
+        padding: 9px 15px; font-weight: 600; cursor: pointer; font-size: 0.74rem;
+    }
+    .btn-apply {
+        background: var(--accent); color: #fff; border: 1px solid var(--accent);
+        padding: 9px 17px; font-weight: 700; cursor: pointer; font-size: 0.74rem;
+    }
+
+    .config-banner {
+        width: 100%;
+        background: #FFF4E0; border: 1px solid var(--accent-raden);
+        color: #7A4E00; padding: 10px 12px; margin-bottom: 10px;
+        font-size: 0.72rem; font-weight: 600; display: none;
+    }
+    .config-banner code { background: var(--card-bg); padding: 1px 5px; border: 1px solid var(--border-color); }
+
+    .toast {
+        position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 16px);
+        background: var(--text-main); border: 1px solid var(--text-main);
+        color: #fff; padding: 10px 16px; font-size: 0.76rem; font-weight: 600;
+        opacity: 0; transition: all 0.2s ease; z-index: 60; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+    <div class="header">
+        <h1>HUB <span>XI-H</span></h1>
+        <div class="header-right">
+            <div class="sync-row" id="syncRow">
+                <span class="sync-icon" id="syncIcon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+                </span>
+                <span id="syncLabel">memuat</span>
+            </div>
+            <div class="profile-switch">
+                <button data-user="Nouval">Nouval</button>
+                <button data-user="Raden">Raden</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-banner" id="configBanner">
+        Backend belum terhubung. Tempel URL Web App Google Apps Script ke konstanta <code>API_URL</code>
+        di bagian bawah <code>index.html</code>, lalu muat ulang halaman.
+    </div>
+
+    <div class="section-label">Jadwal Pelajaran</div>
+    <div class="table-container" id="tableContainer">
+        <table id="scheduleTable">
+            <colgroup>
+                <col class="day-col">
+                <col class="period-col" span="10">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th rowspan="2">Hari</th>
+                    <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                    <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+                </tr>
+                <tr>
+                    <th class="time-slot">06:45<br>07:25</th>
+                    <th class="time-slot">07:25<br>08:05</th>
+                    <th class="time-slot">08:05<br>08:45</th>
+                    <th class="time-slot">08:45<br>09:25</th>
+                    <th class="time-slot">10:15<br>10:55</th>
+                    <th class="time-slot">10:55<br>11:35</th>
+                    <th class="time-slot">12:35<br>13:15</th>
+                    <th class="time-slot">13:15<br>13:55</th>
+                    <th class="time-slot">13:55<br>14:35</th>
+                    <th class="time-slot">14:35<br>15:15</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"><!-- Populated dynamically --></tbody>
+        </table>
+    </div>
+
+    <div class="bottom-actions">
+        <button class="btn-edit" id="editToggleBtn">Edit</button>
+    </div>
+
+    <div class="section-label" style="margin-top:30px;">Tugas</div>
+    <div class="task-tabs">
+        <button class="active" data-cat="Individu">Individu <span class="count" id="countIndividu">0</span></button>
+        <button data-cat="Kelompok">Kelompok <span class="count" id="countKelompok">0</span></button>
+    </div>
+    <div class="task-list" id="taskList"></div>
+
+</div>
+
+<button class="fab" id="fabAdd" title="Tambah tugas">+</button>
+
+<!-- ======================= SLOT EDIT MODAL ======================= -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <h2>Edit Jam Pelajaran</h2>
+        <div class="form-group">
+            <label id="slotModalLabel">Pilih Mata Pelajaran</label>
+            <select id="subjectSelect"></select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="slotCancelBtn">Batal</button>
+            <button class="btn-apply" id="slotApplyBtn">Terapkan</button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= TASK MODAL ======================= -->
+<div class="modal-overlay" id="taskModal">
+    <div class="modal" style="max-width:340px;">
+        <h2 id="taskModalTitle">Tugas Baru</h2>
+        <form id="taskForm">
+            <div class="form-group">
+                <label>Judul Tugas</label>
+                <input type="text" id="fTitle" required placeholder="mis. Laporan Praktikum">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Mata Pelajaran</label>
+                    <select id="fSubject" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Tanggal</label>
+                    <input type="date" id="fDate" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Kategori</label>
+                <div class="cat-toggle" id="fCatToggle">
+                    <button type="button" data-val="Individu" class="active">Individu</button>
+                    <button type="button" data-val="Kelompok">Kelompok</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Catatan</label>
+                <textarea id="fNotes" placeholder="Detail tambahan, deadline, dll."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" id="taskCancelBtn">Batal</button>
+                <button type="submit" class="btn-apply" id="taskSaveBtn">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+ *  CONFIG — paste your deployed Google Apps Script Web App URL below.
+ *  It must end in /exec
+ * ========================================================================= */
+const API_URL = "https://script.google.com/macros/s/AKfycbx2vY3gyL_J_XOCXF5aAsy0CyQ4Yi0J79f0E1edOCBbO5NK7yTXObE7Kn4FQyHv8bDaCA/exec";
+
+/* Fixed 15-subject list — enforced everywhere via <select>, no free text. */
+const SUBJECTS = [
+    { code: 'BIG',   label: 'BIG (Bahasa Inggris)' },
+    { code: 'PAG',   label: 'PAG (Pendidikan Agama)' },
+    { code: 'BK',    label: 'BK (Bimbingan Konseling)' },
+    { code: 'MTK',   label: 'MTK - W (Matematika)' },
+    { code: 'EKO',   label: 'EKO (Ekonomi)' },
+    { code: 'SEJIN', label: 'SEJIN (Sejarah Ind)' },
+    { code: 'PPKn',  label: 'PPKn' },
+    { code: 'BIN',   label: 'BIN (Bahasa Indonesia)' },
+    { code: 'PKWu',  label: 'PKWu' },
+    { code: 'SOS',   label: 'SOS (Sosiologi)' },
+    { code: 'GEO',   label: 'GEO (Geografi)' },
+    { code: 'PJOK',  label: 'PJOK' },
+    { code: 'BIO',   label: 'BIO (Biologi)' },
+    { code: 'BADER', label: 'BADER (Bahasa Daerah)' },
+    { code: 'SEBUD', label: 'SEBUD (Seni Budaya)' }
+];
+function displaySub(code){ return code === 'MTK' ? 'MTK - W' : code; }
+
+const USERS = ['Nouval', 'Raden'];
+const PERIOD_COUNT = 10;
+
+// Fallback seed (used only if the backend is unreachable on first load).
+const initialRawSchedule = [
+    { day: 'Senin',  raw: ['', 'BIG', 'BIG', 'PAG', 'PAG', 'BK', 'MTK', 'MTK', 'EKO', 'EKO'] },
+    { day: 'Selasa', raw: ['SEJIN', 'SEJIN', 'PPKn', 'PPKn', 'BIN', 'BIN', 'PKWu', 'PKWu', 'SOS', 'GEO'] },
+    { day: 'Rabu',   raw: ['EKO', 'EKO', 'PJOK', 'PJOK', 'BIO', 'BIO', 'BADER', 'BADER', 'MTK', 'MTK'] },
+    { day: 'Kamis',  raw: ['GEO', 'GEO', 'SEBUD', 'SEBUD', 'PAG', 'EKO', 'BIN', 'BIN', 'SOS', 'SOS'] },
+    { day: 'Jumat',  raw: ['', 'SOS', 'SOS', 'BIG', 'BIO', 'BIO', 'GEO', 'GEO', '', ''] }
+];
+
+let rawSchedule = JSON.parse(JSON.stringify(initialRawSchedule));
+let tasks = [];
+let isEditMode = false;
+let activeTarget = { dayIdx: null, rawIdx: null };
+let activeUser = localStorage.getItem('activeUser') || 'Nouval';
+let activeCat = 'Individu';
+let editingTaskId = null;
+let modalOpenCount = 0;
+
+/* ------------------------------- exact merge logic (ported) -------------------------------- */
+function autoMergeSlots(rawList) {
+    const merged = [];
+    let i = 0;
+    while (i < rawList.length) {
+        const sub = rawList[i];
+        let span = 1;
+        while (i + span < rawList.length && rawList[i + span] === sub) {
+            span++;
+        }
+        merged.push({ s: sub, span: span, startIdx: i });
+        i += span;
+    }
+    return merged;
+}
+
+/* ------------------------------- helpers -------------------------------- */
+function esc(str){ return String(str||'').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._tm);
+    showToast._tm = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ---- Richer sync feedback: spinning icon while busy, a green flash on
+   success that settles back into a quiet compact label. ---- */
+let syncFlashTimer = null;
+function setSync(status, label){
+    const row = document.getElementById('syncRow');
+    const iconWrap = document.getElementById('syncIcon');
+    document.getElementById('syncLabel').textContent = label;
+    clearTimeout(syncFlashTimer);
+    row.classList.remove('busy','ok-flash','err');
+
+    if(status === 'busy'){
+        row.classList.add('busy');
+        iconWrap.innerHTML = spinnerSvg();
+    } else if(status === 'ok'){
+        row.classList.add('ok-flash');
+        iconWrap.innerHTML = checkSvg();
+        syncFlashTimer = setTimeout(()=>{
+            row.classList.remove('ok-flash');
+            iconWrap.innerHTML = dotSvg();
+        }, 1400);
+    } else if(status === 'err'){
+        row.classList.add('err');
+        iconWrap.innerHTML = warnSvg();
+    } else {
+        iconWrap.innerHTML = dotSvg();
+    }
+}
+function spinnerSvg(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>`; }
+function checkSvg(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`; }
+function warnSvg(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><circle cx="12" cy="12" r="9"/><path d="M12 16.5h.01"/></svg>`; }
+function dotSvg(){ return `<span class="sync-dot"></span>`; }
+
+function fmtDate(d){
+    if(!d) return '-';
+    try{
+        const dt = new Date(d + 'T00:00:00');
+        if(isNaN(dt)) return d;
+        return dt.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
+    }catch(e){ return d; }
+}
+function populateSubjectSelect(sel, withEmpty){
+    sel.innerHTML = '';
+    if(withEmpty){
+        const opt = document.createElement('option');
+        opt.value = ''; opt.textContent = '-- Kosong --';
+        sel.appendChild(opt);
+    }
+    SUBJECTS.forEach(s=>{
+        const opt = document.createElement('option');
+        opt.value = s.code; opt.textContent = s.label;
+        sel.appendChild(opt);
+    });
+}
+
+/* ------------------------------- networking -------------------------------- */
+async function apiGet(){
+    const res = await fetch(API_URL, { method:'GET' });
+    return res.json();
+}
+async function apiPost(payload){
+    const res = await fetch(API_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // avoids CORS preflight on Apps Script
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+
+function applyServerState(data){
+    rawSchedule = data.schedule;
+    tasks = data.tasks;
+    renderTable();
+    renderTasks();
+}
+
+async function loadState(initial){
+    if(!API_URL || API_URL.indexOf('PASTE_YOUR') === 0){
+        document.getElementById('configBanner').style.display = 'block';
+        setSync('err','offline');
+        renderTable(); renderTasks();
+        return;
+    }
+    setSync('busy', initial ? 'memuat' : 'menyinkronkan');
+    try{
+        const json = await apiGet();
+        if(json.success){
+            applyServerState(json.data);
+            setSync('ok','tersinkron');
+        } else {
+            setSync('err','gagal memuat');
+        }
+    }catch(err){
+        setSync('err','tidak terhubung');
+    }
+}
+
+/* Fire a mutation to the backend in the background; state was already
+   updated optimistically by the caller, so we just reconcile on response
+   and roll back + toast on failure. */
+async function syncAction(payload, onFail){
+    if(!API_URL || API_URL.indexOf('PASTE_YOUR') === 0) return; // local-only demo mode
+    setSync('busy','menyimpan');
+    try{
+        const json = await apiPost(payload);
+        if(json.success){
+            applyServerState(json.data);
+            setSync('ok','tersimpan');
+        } else {
+            showToast('Gagal: ' + (json.error||'terjadi kesalahan'));
+            setSync('err','gagal menyimpan');
+            if(onFail) onFail();
+        }
+    }catch(err){
+        showToast('Tidak dapat menghubungi server, perubahan lokal disimpan sementara');
+        setSync('err','offline');
+    }
+}
+
+/* ------------------------------- schedule rendering -------------------------------- */
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+
+    rawSchedule.forEach((dayData, dayIdx) => {
+        const tr = document.createElement('tr');
+        let rowHtml = `<td class="day-cell">${esc(dayData.day)}</td>`;
+
+        if (isEditMode) {
+            // While editing, NEVER merge — every one of the 10 periods is
+            // its own cell so clicking period 2 edits period 2 directly,
+            // even if periods 1 and 2 are both currently empty.
+            dayData.raw.forEach((sub, rawIdx) => {
+                const tag = sub ? `tag-${sub}` : 'tag-EMPTY';
+                rowHtml += `
+                    <td>
+                        <div class="cell-box ${tag}" data-day="${dayIdx}" data-raw="${rawIdx}">
+                            <div class="subject">${sub ? esc(displaySub(sub)) : ''}</div>
+                        </div>
+                    </td>
+                `;
+            });
+        } else {
+            // Read-only view: merge adjacent identical subjects for a clean look.
+            const mergedSlots = autoMergeSlots(dayData.raw);
+            mergedSlots.forEach((slot) => {
+                const tag = slot.s ? `tag-${slot.s}` : 'tag-EMPTY';
+                const sub = slot.s ? displaySub(slot.s) : '';
+                rowHtml += `
+                    <td colspan="${slot.span}">
+                        <div class="cell-box ${tag}" data-day="${dayIdx}" data-raw="${slot.startIdx}">
+                            <div class="subject">${esc(sub)}</div>
+                        </div>
+                    </td>
+                `;
+            });
+        }
+
+        tr.innerHTML = rowHtml;
+        tbody.appendChild(tr);
+    });
+}
+
+document.getElementById('tableBody').addEventListener('click', e=>{
+    const box = e.target.closest('.cell-box');
+    if(!box || !isEditMode) return;
+    openModal(Number(box.dataset.day), Number(box.dataset.raw));
+});
+
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    const btn = document.getElementById('editToggleBtn');
+    const container = document.getElementById('tableContainer');
+
+    if (isEditMode) {
+        btn.innerText = 'Selesai';
+        btn.classList.add('active');
+        container.classList.add('edit-active');
+    } else {
+        btn.innerText = 'Edit';
+        btn.classList.remove('active');
+        container.classList.remove('edit-active');
+    }
+    renderTable();
+}
+document.getElementById('editToggleBtn').addEventListener('click', toggleEditMode);
+
+/* ------------------------------- slot edit modal -------------------------------- */
+function openModal(dayIdx, rawIdx) {
+    activeTarget = { dayIdx, rawIdx };
+    const sub = rawSchedule[dayIdx].raw[rawIdx];
+    const sel = document.getElementById('subjectSelect');
+    populateSubjectSelect(sel, true);
+    sel.value = sub;
+    document.getElementById('slotModalLabel').textContent =
+        `${rawSchedule[dayIdx].day} · Jam ke-${rawIdx+1}`;
+    toggleModal('editModal', true);
+}
+function closeModal() { toggleModal('editModal', false); }
+
+function applyEdit() {
+    const { dayIdx, rawIdx } = activeTarget;
+    const subject = document.getElementById('subjectSelect').value;
+    const day = rawSchedule[dayIdx].day;
+    const previous = rawSchedule[dayIdx].raw[rawIdx];
+
+    // Optimistic UI: update immediately, re-render, THEN sync.
+    rawSchedule[dayIdx].raw[rawIdx] = subject;
+    renderTable();
+    closeModal();
+
+    syncAction({ action:'updateSlot', day, period: rawIdx+1, subject }, () => {
+        rawSchedule[dayIdx].raw[rawIdx] = previous;
+        renderTable();
+    });
+}
+document.getElementById('slotCancelBtn').addEventListener('click', closeModal);
+document.getElementById('slotApplyBtn').addEventListener('click', applyEdit);
+
+/* ------------------------------- task rendering -------------------------------- */
+function renderTasks(){
+    document.getElementById('countIndividu').textContent = tasks.filter(t=>t.category==='Individu').length;
+    document.getElementById('countKelompok').textContent = tasks.filter(t=>t.category==='Kelompok').length;
+
+    const list = document.getElementById('taskList');
+    const items = tasks.filter(t=> t.category === activeCat);
+
+    if(items.length === 0){
+        list.innerHTML = `<div class="empty-state">Belum ada tugas ${activeCat.toLowerCase()}. Ketuk tombol + untuk menambahkan.</div>`;
+        return;
+    }
+
+    list.innerHTML = items.map(t=>{
+        const done = !!t.status[activeUser];
+        return `
+        <div class="task-card ${done?'done':''}" data-id="${t.id}">
+            <button class="check-btn ${done?'checked':''}" data-action="toggle" data-id="${t.id}">${done?'✓':''}</button>
+            <div class="task-main">
+                <div class="task-top">
+                    <span class="task-title">${esc(t.title)}</span>
+                    <span class="badge tag-${t.subject}">${esc(t.subject)}</span>
+                    <span class="badge cat">${esc(t.category)}</span>
+                </div>
+                <div class="task-meta">Dikasih ${fmtDate(t.dateGiven)}</div>
+                ${t.notes ? `<div class="task-notes">${esc(t.notes)}</div>` : ''}
+                <div class="status-strip">
+                    ${USERS.map(u=>`<span class="u ${t.status[u]?'done':''}"><i></i>${u}</span>`).join('')}
+                </div>
+                <div class="task-actions">
+                    <button class="btn-mini" data-action="edit" data-id="${t.id}">Ubah</button>
+                    <button class="btn-mini danger" data-action="delete" data-id="${t.id}">Hapus</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+document.getElementById('taskList').addEventListener('click', e=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const idx = tasks.findIndex(t=>t.id===id);
+    if(idx === -1) return;
+    const task = tasks[idx];
+
+    if(btn.dataset.action === 'toggle'){
+        const previous = !!task.status[activeUser];
+        task.status[activeUser] = !previous;
+        renderTasks();
+        syncAction({ action:'toggleStatus', id, user:activeUser }, () => {
+            task.status[activeUser] = previous;
+            renderTasks();
+        });
+    } else if(btn.dataset.action === 'edit'){
+        openTaskModal(task);
+    } else if(btn.dataset.action === 'delete'){
+        if(confirm(`Hapus tugas "${task.title}"? Tindakan ini tidak bisa dibatalkan.`)){
+            const removed = tasks.splice(idx, 1)[0];
+            renderTasks();
+            syncAction({ action:'deleteTask', id }, () => {
+                tasks.splice(idx, 0, removed);
+                renderTasks();
+            });
+        }
+    }
+});
+
+document.querySelectorAll('.task-tabs button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.task-tabs button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCat = btn.dataset.cat;
+        renderTasks();
+    });
+});
+
+/* ------------------------------- task modal -------------------------------- */
+function openTaskModal(task){
+    editingTaskId = task ? task.id : null;
+    document.getElementById('taskModalTitle').textContent = task ? 'Ubah Tugas' : 'Tugas Baru';
+    document.getElementById('taskSaveBtn').textContent = task ? 'Simpan' : 'Tambah';
+    document.getElementById('fTitle').value = task ? task.title : '';
+    populateSubjectSelect(document.getElementById('fSubject'), false);
+    document.getElementById('fSubject').value = task ? task.subject : SUBJECTS[0].code;
+    document.getElementById('fDate').value = task ? task.dateGiven : new Date().toISOString().slice(0,10);
+    document.getElementById('fNotes').value = task ? task.notes : '';
+    setCatToggle(task ? task.category : activeCat);
+    toggleModal('taskModal', true);
+}
+function closeTaskModal(){ toggleModal('taskModal', false); editingTaskId = null; document.getElementById('taskForm').reset(); }
+function setCatToggle(val){
+    document.querySelectorAll('#fCatToggle button').forEach(b=> b.classList.toggle('active', b.dataset.val === val));
+}
+document.getElementById('fCatToggle').addEventListener('click', e=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    setCatToggle(btn.dataset.val);
+});
+
+document.getElementById('taskForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const title = document.getElementById('fTitle').value.trim();
+    const subject = document.getElementById('fSubject').value;
+    const dateGiven = document.getElementById('fDate').value;
+    const category = document.querySelector('#fCatToggle button.active').dataset.val;
+    const notes = document.getElementById('fNotes').value.trim();
+
+    if(!title || !subject || !dateGiven){ showToast('Lengkapi judul, mapel, dan tanggal'); return; }
+
+    if(editingTaskId){
+        const idx = tasks.findIndex(t=>t.id===editingTaskId);
+        const previous = { ...tasks[idx] };
+        tasks[idx] = { ...tasks[idx], title, subject, dateGiven, category, notes };
+        renderTasks();
+        closeTaskModal();
+        syncAction({ action:'updateTask', task:{ id: previous.id, title, subject, dateGiven, category, notes } }, () => {
+            tasks[idx] = previous; renderTasks();
+        });
+    } else {
+        const tempId = 'temp-' + Date.now();
+        const status = {}; USERS.forEach(u=>status[u]=false);
+        const optimisticTask = { id: tempId, title, subject, category, dateGiven, notes, status, createdAt: new Date().toISOString() };
+        tasks.unshift(optimisticTask);
+        renderTasks();
+        closeTaskModal();
+        syncAction({ action:'addTask', task:{ title, subject, dateGiven, category, notes } }, () => {
+            tasks = tasks.filter(t=>t.id!==tempId); renderTasks();
+        });
+    }
+});
+document.getElementById('taskCancelBtn').addEventListener('click', closeTaskModal);
+document.getElementById('fabAdd').addEventListener('click', ()=> openTaskModal(null));
+
+/* ------------------------------- profile switch -------------------------------- */
+document.querySelectorAll('.profile-switch button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+        activeUser = btn.dataset.user;
+        localStorage.setItem('activeUser', activeUser);
+        applyActiveUser();
+        renderTasks();
+    });
+});
+function applyActiveUser(){
+    document.querySelectorAll('.profile-switch button').forEach(b=> b.classList.toggle('active', b.dataset.user === activeUser));
+}
+
+/* ------------------------------- modal plumbing -------------------------------- */
+function toggleModal(id, open){
+    document.getElementById(id).classList.toggle('open', open);
+    modalOpenCount = document.querySelectorAll('.modal-overlay.open').length;
+}
+['editModal','taskModal'].forEach(id=>{
+    document.getElementById(id).addEventListener('click', e=>{
+        if(e.target.id === id) toggleModal(id, false);
+    });
+});
+
+/* ------------------------------- relaxed polling: every 90s + on focus -------------------------------- */
+applyActiveUser();
+setSync('idle','memuat');
+loadState(true);
+setInterval(()=>{ if(modalOpenCount === 0) loadState(false); }, 90000);
+window.addEventListener('focus', ()=>{ if(modalOpenCount === 0) loadState(false); });
+document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && modalOpenCount === 0) loadState(false);
+});
+</script>
+</body>
+</html>
