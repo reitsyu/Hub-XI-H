@@ -220,6 +220,7 @@
         width: 100%;
         display: flex;
         justify-content: flex-end;
+        gap: 8px;
         margin-top: 10px;
         padding-right: 2px;
     }
@@ -237,6 +238,19 @@
         text-transform: uppercase;
     }
     .btn-edit.active { background-color: var(--danger-bg); color: #ffffff; border-color: var(--danger-bg); }
+
+    .btn-outline {
+        background: var(--card-bg);
+        color: var(--text-main);
+        border: 1px solid var(--border-strong);
+        padding: 8px 16px;
+        font-weight: 700;
+        font-size: clamp(0.72rem, 2.8vw, 0.84rem);
+        cursor: pointer;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
 
     /* ============================= TASKS ============================= */
     .task-tabs {
@@ -264,6 +278,29 @@
         margin-left: 5px;
     }
     .task-tabs button.active .count { background: rgba(255,255,255,0.25); }
+
+    .task-search {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-strong);
+        color: var(--text-main);
+        font-size: 0.8rem;
+        font-weight: 500;
+        outline: none;
+    }
+    .task-search:focus { border-color: var(--accent); }
+
+    tr.today-row .day-cell {
+        background: var(--accent) !important;
+        color: #fff !important;
+        position: relative;
+    }
+    tr.today-row .day-cell::after {
+        content: '•';
+        margin-left: 3px;
+    }
 
     .task-list { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 
@@ -531,6 +568,7 @@
     </div>
 
     <div class="bottom-actions">
+        <button class="btn-outline" id="importCsvBtn">Impor CSV</button>
         <button class="btn-edit" id="editToggleBtn">Edit</button>
     </div>
 
@@ -539,6 +577,7 @@
         <button class="active" data-cat="Individu">Individu <span class="count" id="countIndividu">0</span></button>
         <button data-cat="Kelompok">Kelompok <span class="count" id="countKelompok">0</span></button>
     </div>
+    <input type="text" id="taskSearch" class="task-search" placeholder="Cari tugas atau mapel...">
     <div class="task-list" id="taskList"></div>
 
 </div>
@@ -600,12 +639,54 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ======================= CSV IMPORT MODAL ======================= -->
+<div class="modal-overlay" id="csvModal">
+    <div class="modal" style="max-width:420px;">
+        <h2>Impor Jadwal CSV</h2>
+        <div id="csvStepPick">
+            <div class="form-group">
+                <label>Pilih File CSV</label>
+                <input type="file" id="csvFileInput" accept=".csv,text/csv">
+            </div>
+            <div class="form-group">
+                <label>Atau Tempel Isi CSV</label>
+                <textarea id="csvPasteArea" placeholder="Hari,JP,Jam,Mata Pelajaran,Guru&#10;Senin,JP 2,07.25 - 08.05,Bahasa Inggris,..." style="min-height:110px; font-family:monospace; font-size:0.72rem;"></textarea>
+            </div>
+            <p style="font-size:0.68rem; color:var(--text-muted); margin-bottom:6px; line-height:1.5;">
+                Format kolom yang dikenali: <b>Hari, JP, Jam, Mata Pelajaran</b> (kolom Guru diabaikan).
+                Nama mapel otomatis dipetakan ke salah satu dari 15 kode tetap.
+            </p>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" id="csvCancelBtn">Batal</button>
+                <button type="button" class="btn-apply" id="csvParseBtn">Proses</button>
+            </div>
+        </div>
+
+        <div id="csvStepReview" style="display:none;">
+            <div id="csvUnmappedBox" style="display:none; margin-bottom:14px;">
+                <label style="display:block; font-size:0.68rem; color:var(--danger); font-weight:700; margin-bottom:8px; text-transform:uppercase;">
+                    Mapel Tidak Dikenali — Pilih Kode Manual
+                </label>
+                <div id="csvUnmappedList"></div>
+            </div>
+            <div class="form-group">
+                <label>Pratinjau (<span id="csvRowCount">0</span> baris terbaca)</label>
+                <div id="csvPreviewGrid" style="font-size:0.62rem; border:1px solid var(--border-strong); max-height:180px; overflow:auto;"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" id="csvBackBtn">Kembali</button>
+                <button type="button" class="btn-apply" id="csvApplyBtn">Terapkan Ke Jadwal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 /* =========================================================================
  *  CONFIG — paste your deployed Google Apps Script Web App URL below.
  *  It must end in /exec
  * ========================================================================= */
-const API_URL = "https://script.google.com/macros/s/AKfycbx2vY3gyL_J_XOCXF5aAsy0CyQ4Yi0J79f0E1edOCBbO5NK7yTXObE7Kn4FQyHv8bDaCA/exec";
+const API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
 
 /* Fixed 15-subject list — enforced everywhere via <select>, no free text. */
 const SUBJECTS = [
@@ -627,6 +708,28 @@ const SUBJECTS = [
 ];
 function displaySub(code){ return code === 'MTK' ? 'MTK - W' : code; }
 
+// Aliases so a CSV using full subject names (as most school schedule
+// exports do) maps straight onto the 15 fixed codes without any manual
+// work in the common case. Keys are normalized (lowercase, single spaces).
+const SUBJECT_ALIASES = {
+    'bahasa inggris': 'BIG', 'big': 'BIG',
+    'pai': 'PAG', 'pag': 'PAG', 'pendidikan agama': 'PAG', 'pendidikan agama islam': 'PAG',
+    'bk': 'BK', 'bimbingan konseling': 'BK',
+    'matematika': 'MTK', 'mtk': 'MTK', 'mtk - w': 'MTK', 'mtk-w': 'MTK',
+    'ekonomi': 'EKO', 'eko': 'EKO',
+    'sejarah': 'SEJIN', 'sejarah indonesia': 'SEJIN', 'sejin': 'SEJIN',
+    'ppkn': 'PPKn',
+    'bahasa indonesia': 'BIN', 'bin': 'BIN',
+    'pkwu': 'PKWu',
+    'sosiologi': 'SOS', 'sos': 'SOS',
+    'geografi': 'GEO', 'geo': 'GEO',
+    'pjok': 'PJOK', 'penjas': 'PJOK', 'penjaskes': 'PJOK',
+    'biologi': 'BIO', 'bio': 'BIO',
+    'bahasa jawa': 'BADER', 'bahasa daerah': 'BADER', 'bader': 'BADER',
+    'seni budaya': 'SEBUD', 'sebud': 'SEBUD'
+};
+function normalizeLabel(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+
 const USERS = ['Nouval', 'Raden'];
 const PERIOD_COUNT = 10;
 
@@ -647,6 +750,9 @@ let activeUser = localStorage.getItem('activeUser') || 'Nouval';
 let activeCat = 'Individu';
 let editingTaskId = null;
 let modalOpenCount = 0;
+let taskSearchQuery = '';
+let csvParsedSchedule = null;   // pending schedule built from the last CSV parse
+let csvUnmapped = {};           // { normalizedLabel: chosenCode }
 
 /* ------------------------------- exact merge logic (ported) -------------------------------- */
 function autoMergeSlots(rawList) {
@@ -797,12 +903,20 @@ async function syncAction(payload, onFail){
 }
 
 /* ------------------------------- schedule rendering -------------------------------- */
+function getTodayDayName(){
+    // JS getDay(): 0=Sun,1=Mon,...6=Sat. Only Mon-Fri map onto the grid.
+    const map = { 1:'Senin', 2:'Selasa', 3:'Rabu', 4:'Kamis', 5:'Jumat' };
+    return map[new Date().getDay()] || null;
+}
+
 function renderTable() {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
+    const today = getTodayDayName();
 
     rawSchedule.forEach((dayData, dayIdx) => {
         const tr = document.createElement('tr');
+        if(dayData.day === today) tr.classList.add('today-row');
         let rowHtml = `<td class="day-cell">${esc(dayData.day)}</td>`;
 
         if (isEditMode) {
@@ -902,10 +1016,20 @@ function renderTasks(){
     document.getElementById('countKelompok').textContent = tasks.filter(t=>t.category==='Kelompok').length;
 
     const list = document.getElementById('taskList');
-    const items = tasks.filter(t=> t.category === activeCat);
+    const q = taskSearchQuery.trim().toLowerCase();
+    let items = tasks.filter(t=> t.category === activeCat);
+    if(q){
+        items = items.filter(t=>
+            t.title.toLowerCase().includes(q) ||
+            t.subject.toLowerCase().includes(q) ||
+            (t.notes||'').toLowerCase().includes(q)
+        );
+    }
 
     if(items.length === 0){
-        list.innerHTML = `<div class="empty-state">Belum ada tugas ${activeCat.toLowerCase()}. Ketuk tombol + untuk menambahkan.</div>`;
+        list.innerHTML = q
+            ? `<div class="empty-state">Tidak ada tugas yang cocok dengan "${esc(taskSearchQuery)}".</div>`
+            : `<div class="empty-state">Belum ada tugas ${activeCat.toLowerCase()}. Ketuk tombol + untuk menambahkan.</div>`;
         return;
     }
 
@@ -971,6 +1095,10 @@ document.querySelectorAll('.task-tabs button').forEach(btn=>{
         activeCat = btn.dataset.cat;
         renderTasks();
     });
+});
+document.getElementById('taskSearch').addEventListener('input', e=>{
+    taskSearchQuery = e.target.value;
+    renderTasks();
 });
 
 /* ------------------------------- task modal -------------------------------- */
@@ -1048,10 +1176,193 @@ function toggleModal(id, open){
     document.getElementById(id).classList.toggle('open', open);
     modalOpenCount = document.querySelectorAll('.modal-overlay.open').length;
 }
-['editModal','taskModal'].forEach(id=>{
+['editModal','taskModal','csvModal'].forEach(id=>{
     document.getElementById(id).addEventListener('click', e=>{
         if(e.target.id === id) toggleModal(id, false);
     });
+});
+document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape' && modalOpenCount > 0){
+        document.querySelectorAll('.modal-overlay.open').forEach(m=> toggleModal(m.id, false));
+    }
+});
+
+/* =========================================================================
+ *  CSV IMPORT — parses a "Hari,JP,Jam,Mata Pelajaran,Guru"-style schedule
+ *  export, maps subject names onto the 15 fixed codes, and lets the user
+ *  resolve anything it doesn't recognize before applying it in one shot.
+ * ========================================================================= */
+function splitCsvLine(line){
+    // Minimal CSV split that still respects "quoted, commas" if present.
+    const out = []; let cur = ''; let inQuotes = false;
+    for(let i=0;i<line.length;i++){
+        const c = line[i];
+        if(c === '"'){ inQuotes = !inQuotes; }
+        else if(c === ',' && !inQuotes){ out.push(cur); cur = ''; }
+        else { cur += c; }
+    }
+    out.push(cur);
+    return out.map(s=>s.trim());
+}
+
+function parseScheduleCsv(text){
+    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
+    // Find the real header row (skips a title line like "Jadwal Pelajaran Kelas: XI H").
+    let headerIdx = lines.findIndex(l=>{
+        const low = l.toLowerCase();
+        return low.includes('hari') && low.includes('jp') && (low.includes('mata pelajaran') || low.includes('mapel'));
+    });
+    if(headerIdx === -1) throw new Error('Header CSV tidak ditemukan (butuh kolom Hari, JP, Mata Pelajaran)');
+
+    const header = splitCsvLine(lines[headerIdx]).map(h=>h.toLowerCase());
+    const idxHari = header.findIndex(h=>h.includes('hari'));
+    const idxJp = header.findIndex(h=>h === 'jp' || h.includes('jp'));
+    const idxMapel = header.findIndex(h=>h.includes('mata pelajaran') || h.includes('mapel'));
+    if(idxHari===-1 || idxJp===-1 || idxMapel===-1) throw new Error('Kolom Hari/JP/Mata Pelajaran tidak lengkap');
+
+    // Start from a blank 5x10 grid — anything the CSV doesn't mention stays empty.
+    const grid = initialRawSchedule.map(d=>({ day:d.day, raw:new Array(PERIOD_COUNT).fill('') }));
+    const unmappedLabels = new Set();
+    let rowCount = 0;
+
+    for(let i = headerIdx+1; i < lines.length; i++){
+        const cols = splitCsvLine(lines[i]);
+        const dayRaw = (cols[idxHari]||'').trim();
+        const jpRaw = (cols[idxJp]||'').trim();
+        const mapelRaw = (cols[idxMapel]||'').trim();
+        if(!dayRaw || !jpRaw || !mapelRaw) continue;
+
+        const dayMatch = DAYS_ORDER.find(d=> d.toLowerCase() === dayRaw.toLowerCase());
+        const periodMatch = jpRaw.match(/(\d+)/);
+        if(!dayMatch || !periodMatch) continue;
+        const period = parseInt(periodMatch[1], 10);
+        if(period < 1 || period > PERIOD_COUNT) continue;
+
+        const norm = normalizeLabel(mapelRaw);
+        const code = SUBJECT_ALIASES[norm];
+        const dayEntry = grid.find(d=>d.day === dayMatch);
+        if(code){
+            dayEntry.raw[period-1] = code;
+        } else {
+            unmappedLabels.add(mapelRaw);
+            dayEntry.raw[period-1] = '__UNMAPPED__:' + mapelRaw; // placeholder resolved later
+        }
+        rowCount++;
+    }
+
+    return { grid, unmappedLabels: [...unmappedLabels], rowCount };
+}
+const DAYS_ORDER = ['Senin','Selasa','Rabu','Kamis','Jumat'];
+
+function openCsvModal(){
+    document.getElementById('csvFileInput').value = '';
+    document.getElementById('csvPasteArea').value = '';
+    document.getElementById('csvStepPick').style.display = '';
+    document.getElementById('csvStepReview').style.display = 'none';
+    csvParsedSchedule = null;
+    csvUnmapped = {};
+    toggleModal('csvModal', true);
+}
+function closeCsvModal(){ toggleModal('csvModal', false); }
+
+document.getElementById('importCsvBtn').addEventListener('click', openCsvModal);
+document.getElementById('csvCancelBtn').addEventListener('click', closeCsvModal);
+document.getElementById('csvBackBtn').addEventListener('click', ()=>{
+    document.getElementById('csvStepPick').style.display = '';
+    document.getElementById('csvStepReview').style.display = 'none';
+});
+
+document.getElementById('csvFileInput').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { document.getElementById('csvPasteArea').value = ev.target.result; };
+    reader.readAsText(file);
+});
+
+document.getElementById('csvParseBtn').addEventListener('click', ()=>{
+    const text = document.getElementById('csvPasteArea').value;
+    if(!text.trim()){ showToast('Pilih file atau tempel isi CSV terlebih dahulu'); return; }
+    let result;
+    try{ result = parseScheduleCsv(text); }
+    catch(err){ showToast(err.message || 'Gagal membaca CSV'); return; }
+
+    if(result.rowCount === 0){ showToast('Tidak ada baris jadwal yang terbaca dari CSV ini'); return; }
+
+    csvParsedSchedule = result.grid;
+    csvUnmapped = {};
+    result.unmappedLabels.forEach(label => { csvUnmapped[label] = ''; });
+
+    renderCsvReview(result);
+    document.getElementById('csvStepPick').style.display = 'none';
+    document.getElementById('csvStepReview').style.display = '';
+});
+
+function renderCsvReview(result){
+    document.getElementById('csvRowCount').textContent = result.rowCount;
+
+    const unmappedBox = document.getElementById('csvUnmappedBox');
+    const unmappedList = document.getElementById('csvUnmappedList');
+    if(result.unmappedLabels.length === 0){
+        unmappedBox.style.display = 'none';
+        unmappedList.innerHTML = '';
+    } else {
+        unmappedBox.style.display = '';
+        unmappedList.innerHTML = result.unmappedLabels.map(label => `
+            <div class="form-group" style="margin-bottom:8px;">
+                <label style="text-transform:none; font-weight:600;">"${esc(label)}"</label>
+                <select data-unmapped-label="${esc(label)}">
+                    <option value="">-- Kosongkan slot ini --</option>
+                    ${SUBJECTS.map(s=>`<option value="${s.code}">${esc(s.label)}</option>`).join('')}
+                </select>
+            </div>
+        `).join('');
+        unmappedList.querySelectorAll('select').forEach(sel=>{
+            sel.addEventListener('change', ()=>{
+                csvUnmapped[sel.dataset.unmappedLabel] = sel.value;
+            });
+        });
+    }
+
+    // Text preview grid: 5 rows (days) x 10 columns (periods).
+    const preview = document.getElementById('csvPreviewGrid');
+    const rows = csvParsedSchedule.map(d=>{
+        const cells = d.raw.map(v=>{
+            const isUnmapped = String(v).startsWith('__UNMAPPED__:');
+            const label = isUnmapped ? '?' : (v || '—');
+            return `<td style="border:1px solid var(--border-color); padding:3px 2px; text-align:center; ${isUnmapped?'color:var(--danger);font-weight:700;':''}">${esc(label)}</td>`;
+        }).join('');
+        return `<tr><th style="border:1px solid var(--border-color); padding:3px 4px; background:var(--card-bg-sunken); white-space:nowrap;">${esc(d.day)}</th>${cells}</tr>`;
+    }).join('');
+    preview.innerHTML = `<table style="width:100%; border-collapse:collapse;">${rows}</table>`;
+}
+
+document.getElementById('csvApplyBtn').addEventListener('click', ()=>{
+    if(!csvParsedSchedule) return;
+
+    // Resolve every unmapped placeholder using the manual choices above.
+    const finalGrid = csvParsedSchedule.map(d => ({
+        day: d.day,
+        raw: d.raw.map(v=>{
+            if(String(v).startsWith('__UNMAPPED__:')){
+                const label = v.slice('__UNMAPPED__:'.length);
+                return csvUnmapped[label] || '';
+            }
+            return v;
+        })
+    }));
+
+    // Optimistic UI: swap the grid in immediately, then sync.
+    const previous = JSON.parse(JSON.stringify(rawSchedule));
+    rawSchedule = finalGrid;
+    renderTable();
+    closeCsvModal();
+
+    syncAction({ action:'importSchedule', schedule: finalGrid }, () => {
+        rawSchedule = previous;
+        renderTable();
+    });
+    showToast('Jadwal berhasil diimpor');
 });
 
 /* ------------------------------- relaxed polling: every 90s + on focus -------------------------------- */
