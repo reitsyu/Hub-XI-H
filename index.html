@@ -83,6 +83,7 @@
     .sync-row.busy { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
     .sync-row.ok-flash { border-color: var(--ok); background: #E8F8F0; color: var(--ok); }
     .sync-row.err { border-color: var(--danger); background: #FDEAEE; color: var(--danger); }
+    .sync-row.offline { border-color: var(--accent-raden); background: #FFF6E6; color: #92600A; }
 
     .sync-icon {
         width: 13px; height: 13px; flex: none;
@@ -568,7 +569,7 @@
     </div>
 
     <div class="bottom-actions">
-        <button class="btn-outline" id="importCsvBtn">Impor CSV</button>
+        <button class="btn-outline" id="importCsvBtn" style="display:none;">Impor CSV</button>
         <button class="btn-edit" id="editToggleBtn">Edit</button>
     </div>
 
@@ -788,7 +789,7 @@ function setSync(status, label){
     const iconWrap = document.getElementById('syncIcon');
     document.getElementById('syncLabel').textContent = label;
     clearTimeout(syncFlashTimer);
-    row.classList.remove('busy','ok-flash','err');
+    row.classList.remove('busy','ok-flash','err','offline');
 
     if(status === 'busy'){
         row.classList.add('busy');
@@ -802,6 +803,9 @@ function setSync(status, label){
         }, 1400);
     } else if(status === 'err'){
         row.classList.add('err');
+        iconWrap.innerHTML = warnSvg();
+    } else if(status === 'offline'){
+        row.classList.add('offline');
         iconWrap.innerHTML = warnSvg();
     } else {
         iconWrap.innerHTML = dotSvg();
@@ -851,12 +855,69 @@ async function apiPost(payload){
     });
     return res.json();
 }
+function genId(){
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
+/* ---- Local cache: lets the app still show the last-known schedule/tasks
+   when opened with no connection, instead of an empty screen. ---- */
+const STATE_CACHE_KEY = 'hubxih_state_cache';
+function cacheState(){
+    try{ localStorage.setItem(STATE_CACHE_KEY, JSON.stringify({ schedule: rawSchedule, tasks })); }catch(e){}
+}
+function loadCachedState(){
+    try{ return JSON.parse(localStorage.getItem(STATE_CACHE_KEY) || 'null'); }catch(e){ return null; }
+}
 
 function applyServerState(data){
     rawSchedule = data.schedule;
     tasks = data.tasks;
     renderTable();
     renderTasks();
+    cacheState();
+}
+
+/* ---- Offline queue: any mutation that fails to reach the server (instead
+   of being rejected by it) gets queued here and retried automatically.
+   Every queued action is written to be idempotent server-side (setStatus,
+   dedup'd addTask, no-op delete/update on missing rows), so replaying the
+   same item twice — e.g. a flush that partially succeeds — never
+   double-applies or duplicates a task. ---- */
+const QUEUE_KEY = 'hubxih_pending_queue';
+function loadQueue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }catch(e){ return []; } }
+function saveQueue(q){ try{ localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }catch(e){} }
+function queuePush(payload){ const q = loadQueue(); q.push(payload); saveQueue(q); renderSyncStatus(); }
+function renderSyncStatus(){
+    const n = loadQueue().length;
+    if(n > 0) setSync('offline', n === 1 ? '1 perubahan tertunda' : n + ' perubahan tertunda');
+    else if(!navigator.onLine) setSync('offline','offline');
+}
+
+let isFlushing = false;
+async function flushQueue(){
+    if(isFlushing || !navigator.onLine) return;
+    if(!API_URL || API_URL.indexOf('PASTE_YOUR') === 0) return;
+    if(loadQueue().length === 0) return;
+    isFlushing = true;
+    while(loadQueue().length > 0){
+        const item = loadQueue()[0];
+        try{
+            const json = await apiPost(item);
+            if(json.success){
+                applyServerState(json.data);
+            } else {
+                // A queued action the server actively rejected will never succeed on
+                // retry (e.g. bad data) — drop it rather than blocking the queue forever.
+                showToast('Sebagian perubahan offline gagal disinkronkan');
+            }
+            saveQueue(loadQueue().slice(1));
+        }catch(err){
+            break; // still offline — stop here, keep the rest queued for next attempt
+        }
+    }
+    isFlushing = false;
+    renderSyncStatus();
+    if(loadQueue().length === 0) setSync('ok','tersinkron');
 }
 
 async function loadState(initial){
@@ -866,6 +927,7 @@ async function loadState(initial){
         renderTable(); renderTasks();
         return;
     }
+    await flushQueue();
     setSync('busy', initial ? 'memuat' : 'menyinkronkan');
     try{
         const json = await apiGet();
@@ -876,13 +938,23 @@ async function loadState(initial){
             setSync('err','gagal memuat');
         }
     }catch(err){
-        setSync('err','tidak terhubung');
+        // No connection at all: fall back to whatever we last saw, so the
+        // dashboard is still usable (viewing + queued edits) while offline.
+        const cached = loadCachedState();
+        if(cached && initial){
+            rawSchedule = cached.schedule;
+            tasks = cached.tasks;
+            renderTable(); renderTasks();
+        }
+        renderSyncStatus();
     }
 }
 
 /* Fire a mutation to the backend in the background; state was already
-   updated optimistically by the caller, so we just reconcile on response
-   and roll back + toast on failure. */
+   updated optimistically by the caller. A real server-side rejection
+   (success:false) rolls back via onFail. A network failure does NOT roll
+   back — the optimistic change is kept and queued to retry automatically,
+   so edits made offline aren't lost. */
 async function syncAction(payload, onFail){
     if(!API_URL || API_URL.indexOf('PASTE_YOUR') === 0) return; // local-only demo mode
     setSync('busy','menyimpan');
@@ -891,14 +963,15 @@ async function syncAction(payload, onFail){
         if(json.success){
             applyServerState(json.data);
             setSync('ok','tersimpan');
+            flushQueue(); // in case older queued items are also waiting
         } else {
             showToast('Gagal: ' + (json.error||'terjadi kesalahan'));
             setSync('err','gagal menyimpan');
             if(onFail) onFail();
         }
     }catch(err){
-        showToast('Tidak dapat menghubungi server, perubahan lokal disimpan sementara');
-        setSync('err','offline');
+        queuePush(payload);
+        cacheState();
     }
 }
 
@@ -964,15 +1037,18 @@ function toggleEditMode() {
     isEditMode = !isEditMode;
     const btn = document.getElementById('editToggleBtn');
     const container = document.getElementById('tableContainer');
+    const importBtn = document.getElementById('importCsvBtn');
 
     if (isEditMode) {
         btn.innerText = 'Selesai';
         btn.classList.add('active');
         container.classList.add('edit-active');
+        importBtn.style.display = '';
     } else {
         btn.innerText = 'Edit';
         btn.classList.remove('active');
         container.classList.remove('edit-active');
+        importBtn.style.display = 'none';
     }
     renderTable();
 }
@@ -1068,9 +1144,10 @@ document.getElementById('taskList').addEventListener('click', e=>{
 
     if(btn.dataset.action === 'toggle'){
         const previous = !!task.status[activeUser];
-        task.status[activeUser] = !previous;
+        const next = !previous;
+        task.status[activeUser] = next;
         renderTasks();
-        syncAction({ action:'toggleStatus', id, user:activeUser }, () => {
+        syncAction({ action:'setStatus', id, user:activeUser, value:next }, () => {
             task.status[activeUser] = previous;
             renderTasks();
         });
@@ -1144,14 +1221,14 @@ document.getElementById('taskForm').addEventListener('submit', e=>{
             tasks[idx] = previous; renderTasks();
         });
     } else {
-        const tempId = 'temp-' + Date.now();
+        const newId = genId();
         const status = {}; USERS.forEach(u=>status[u]=false);
-        const optimisticTask = { id: tempId, title, subject, category, dateGiven, notes, status, createdAt: new Date().toISOString() };
+        const optimisticTask = { id: newId, title, subject, category, dateGiven, notes, status, createdAt: new Date().toISOString() };
         tasks.unshift(optimisticTask);
         renderTasks();
         closeTaskModal();
-        syncAction({ action:'addTask', task:{ title, subject, dateGiven, category, notes } }, () => {
-            tasks = tasks.filter(t=>t.id!==tempId); renderTasks();
+        syncAction({ action:'addTask', task:{ id: newId, title, subject, dateGiven, category, notes } }, () => {
+            tasks = tasks.filter(t=>t.id!==newId); renderTasks();
         });
     }
 });
@@ -1374,6 +1451,11 @@ window.addEventListener('focus', ()=>{ if(modalOpenCount === 0) loadState(false)
 document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState === 'visible' && modalOpenCount === 0) loadState(false);
 });
+
+/* ------------------------------- offline queue: retry promptly, not just every 90s -------------------------------- */
+window.addEventListener('online', ()=>{ flushQueue().then(()=>{ if(modalOpenCount===0) loadState(false); }); });
+window.addEventListener('offline', renderSyncStatus);
+setInterval(()=>{ if(loadQueue().length > 0 && modalOpenCount === 0) flushQueue(); }, 10000);
 </script>
 </body>
 </html>
